@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: "{{ .Values.comprasweb.serviceName }}"
+  namespace: {{ .Values.namespace }}
+spec:
+  ports:
+    - port: {{ .Values.comprasweb.port }}
+      targetPort: {{ .Values.comprasweb.port }}
+  selector:
+    app: {{ .Values.comprasweb.serviceName }}
+  type: ClusterIP

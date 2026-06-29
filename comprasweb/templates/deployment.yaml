@@ -1,0 +1,113 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: "{{ .Values.comprasweb.serviceName }}-{{ .Values.env }}"
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: {{ .Values.comprasweb.serviceName | quote }}
+spec:
+  replicas: {{ .Values.comprasweb.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ .Values.comprasweb.serviceName | quote }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.comprasweb.serviceName | quote }}
+        version: {{ .Values.comprasweb.image.tag | quote }}
+    spec:
+      serviceAccountName: {{ .Values.namespace }}-account
+      # PSS restricted: seccomp padrão do runtime
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000    # node user (built-in node:22-bookworm-slim)
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: "{{ .Values.comprasweb.serviceName }}-{{ .Values.env }}"
+          image: "{{ .Values.comprasweb.image.repository }}:{{ .Values.comprasweb.image.tag }}"
+          imagePullPolicy: {{ .Values.comprasweb.image.pullPolicy | default "Always" }}
+          ports:
+            - containerPort: {{ .Values.comprasweb.port }}
+              protocol: TCP
+          # PSS restricted + req. 5 (non-root) + req. 7 (read-only)
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+            capabilities:
+              drop: ["ALL"]
+            seccompProfile:
+              type: RuntimeDefault
+          volumeMounts:
+            # /tmp necessário para Node.js com filesystem read-only
+            - name: tmp
+              mountPath: /tmp
+          env:
+            - name: NODE_ENV
+              value: "production"
+            - name: PORT
+              value: "{{ .Values.comprasweb.port }}"
+            - name: WEB_CONCURRENCY
+              value: {{ .Values.comprasweb.webConcurrency | default "2" | quote }}
+            - name: DB_CLIENT
+              value: "pg"
+            - name: DB_HOST
+              value: "{{ .Release.Name }}-postgresql"
+            - name: DB_PORT
+              value: "5432"
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: "compras-app-secret-{{ .Values.env }}"
+                  key: db_user
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: "compras-app-secret-{{ .Values.env }}"
+                  key: db_password
+            - name: DB_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: "compras-app-secret-{{ .Values.env }}"
+                  key: db_name
+            - name: REDIS_HOST
+              value: "redis://{{ .Release.Name }}-redis-master:6379"
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: "compras-app-secret-{{ .Values.env }}"
+                  key: jwt_secret
+            - name: GOOGLE_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: "compras-app-secret-{{ .Values.env }}"
+                  key: google_client_id
+            - name: GOOGLE_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: "compras-app-secret-{{ .Values.env }}"
+                  key: google_client_secret
+            - name: GOOGLE_CALLBACK_URL
+              value: {{ .Values.comprasweb.googleCallbackUrl | quote }}
+            - name: APP_URL
+              value: {{ .Values.comprasweb.appUrl | quote }}
+            - name: LOCAL_AUTH_ENABLED
+              value: {{ .Values.comprasweb.localAuthEnabled | default "false" | quote }}
+            - name: LOCAL_AUTH_USER
+              value: {{ .Values.comprasweb.localAuthUser | default "loadtest" | quote }}
+            - name: LOCAL_AUTH_PASSWORD
+              value: {{ .Values.comprasweb.localAuthPassword | default "loadtest123" | quote }}
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: {{ .Values.comprasweb.port }}
+            initialDelaySeconds: 10
+            periodSeconds: 5
+      volumes:
+        - name: tmp
+          emptyDir: {}

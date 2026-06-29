@@ -1,0 +1,62 @@
+namespace: comprasweb-local
+env: local
+
+postgresql:
+  enabled: true
+  storage: 1Gi
+  auth:
+    username: compras
+    password: "CHANGE_IN_PROD"   # dev only — em prod: --set postgresql.auth.password=$SECRET
+    database: lista_compras
+
+redis:
+  enabled: true
+
+comprasweb:
+  replicaCount: 1
+  image:
+    repository: comprasweb-local
+    tag: "latest"
+    pullPolicy: Never         # usa imagem carregada localmente no kind
+  port: 3000
+  serviceName: comprasweb
+
+  # Workers Node.js (cluster mode) — não usar os.cpus() em containers
+  webConcurrency: "2"   # kind tem CPU limitado; prod: ajustar conforme limits.cpu
+
+  # Auth local para testes de carga (desabilitar em produção)
+  localAuthEnabled: "true"
+  localAuthUser: "loadtest"
+  localAuthPassword: "loadtest123"
+
+  # SECRETS — passar via --set ou gerenciar externamente em produção.
+  # Nunca commitar valores reais. Usar: helm upgrade ... --set comprasweb.jwtSecret=$SECRET
+  jwtSecret: "CHANGE_IN_PROD"
+  googleClientId: "YOUR_GOOGLE_CLIENT_ID"
+  googleClientSecret: "YOUR_GOOGLE_CLIENT_SECRET"
+  googleCallbackUrl: "http://compras.localhost/auth/google/callback"
+  appUrl: "http://compras.localhost"
+
+hpa:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 50
+
+ingress:
+  enabled: true
+  ingressClassName: nginx
+  rewriteTarget: /
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+  certManager:
+    enabled: false    # no cert-manager in kind local dev
+  hosts:
+    - host: compras.localhost
+      paths:
+        - path: /
+          pathType: Prefix
+          service: comprasweb
+          port: 3000
+  tls:
+    enabled: false

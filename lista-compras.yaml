@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  labels:
+    app: lista-compras-app
+  name: lista-compras-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: lista-compras-app
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: lista-compras-app
+        version: "1.0"
+    spec:
+      containers:
+      - env:
+        - name: VERSION
+          value: "1.0"
+      - image: ghcr.io/felipe-e-ribeiro/lista-compras:1.0
+        name: lista-compras-app
+        resources: {}
+        ports:
+        - containerPort: 3000
+        env:
+        - name: MYSQL_HOST
+          valueFrom:
+            secretKeyRef:
+              name: lista-compras
+              key: MYSQL_HOST
+        - name: MYSQL_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: lista-compras
+              key: MYSQL_PASSWORD
+        - name: MYSQL_DB
+          valueFrom:
+            secretKeyRef:
+              name: lista-compras
+              key: MYSQL_DB
+        - name: MYSQL_USER
+          valueFrom:
+            secretKeyRef:
+              name: lista-compras
+              key: MYSQL_USER
+status: {} 

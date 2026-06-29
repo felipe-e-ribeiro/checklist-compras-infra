@@ -1,0 +1,22 @@
+Thank you for installing {{ .Chart.Name }}!
+
+Your application has been deployed successfully.
+
+To access the PHP service:
+  1. Run the following command to get the ClusterIP:
+     kubectl get svc linux101-php -o jsonpath='{.spec.clusterIP}'
+
+  2. Connect to the service using the ClusterIP and port {{ .Values.comprasweb.port }}.
+
+To access the Web service:
+  1. Run the following command to get the ClusterIP:
+     kubectl get svc linux101-web -o jsonpath='{.spec.clusterIP}'
+
+  2. Open your browser or use a curl command to test:
+     curl http://<ClusterIP>:{{ .Values.comprasweb.port }}
+
+To check the status of your deployments:
+  kubectl get deployments -l app=linux101
+
+To view logs:
+  kubectl logs -l app=linux101

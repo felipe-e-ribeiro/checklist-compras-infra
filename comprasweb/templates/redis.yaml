@@ -1,0 +1,65 @@
+{{- if .Values.redis.enabled }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: "{{ .Release.Name }}-redis"
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: "{{ .Release.Name }}-redis"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: "{{ .Release.Name }}-redis"
+  template:
+    metadata:
+      labels:
+        app: "{{ .Release.Name }}-redis"
+    spec:
+      # redis user: UID 999 (built-in na imagem oficial)
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 999
+        runAsGroup: 999
+        fsGroup: 999
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: redis
+          # redis:7-bookworm: multi-arch (linux/amd64 + linux/arm64), versão pinada
+          image: "redis:7-bookworm"
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 6379
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            seccompProfile:
+              type: RuntimeDefault
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+          readinessProbe:
+            exec:
+              command: ["redis-cli", "ping"]
+            initialDelaySeconds: 5
+            periodSeconds: 5
+      volumes:
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: "{{ .Release.Name }}-redis-master"
+  namespace: {{ .Values.namespace }}
+spec:
+  ports:
+    - port: 6379
+      targetPort: 6379
+  selector:
+    app: "{{ .Release.Name }}-redis"
+  type: ClusterIP
+{{- end }}

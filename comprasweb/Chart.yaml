@@ -1,0 +1,6 @@
+apiVersion: v2
+name: comprasweb
+description: Lista de compras multi-tenant com autenticação Google OAuth
+type: application
+version: 2.0.0
+appVersion: "2.0.0"

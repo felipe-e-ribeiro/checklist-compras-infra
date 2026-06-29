@@ -1,0 +1,126 @@
+{{- if .Values.postgresql.enabled }}
+{{- $pvcName := printf "%s-postgresql-pvc" .Release.Name }}
+{{- if not (lookup "v1" "PersistentVolumeClaim" .Values.namespace $pvcName) }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ $pvcName }}
+  namespace: {{ .Values.namespace }}
+spec:
+  accessModes:
+    - {{ .Values.postgresql.accessMode | default "ReadWriteOnce" }}
+  {{- if .Values.postgresql.storageClassName }}
+  storageClassName: {{ .Values.postgresql.storageClassName }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.postgresql.storage | default "1Gi" }}
+{{- end }}
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: "{{ .Release.Name }}-postgresql"
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: "{{ .Release.Name }}-postgresql"
+spec:
+  serviceName: "{{ .Release.Name }}-postgresql"
+  replicas: 1
+  selector:
+    matchLabels:
+      app: "{{ .Release.Name }}-postgresql"
+  template:
+    metadata:
+      labels:
+        app: "{{ .Release.Name }}-postgresql"
+    spec:
+      securityContext:
+        fsGroup: 999
+        fsGroupChangePolicy: Always   # força chown para UID 999 em todo storage class
+        seccompProfile:
+          type: RuntimeDefault
+      # initContainer garante ownership correto em storage classes que ignoram fsGroup
+      initContainers:
+        - name: fix-data-permissions
+          image: "busybox:1.36"
+          imagePullPolicy: IfNotPresent
+          command: ["sh", "-c", "chown -R 999:999 /var/lib/postgresql/data"]
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+          securityContext:
+            runAsUser: 0   # root necessário para chown do volume
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+              add: ["CHOWN", "DAC_OVERRIDE"]  # mínimo para chown recursivo
+      containers:
+        - name: postgresql
+          # postgres:16-bookworm: multi-arch (linux/amd64 + linux/arm64), versão pinada
+          image: "postgres:16-bookworm"
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 5432
+          securityContext:
+            runAsUser: 999
+            runAsGroup: 999
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            seccompProfile:
+              type: RuntimeDefault
+          env:
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: "compras-app-secret-{{ .Values.env }}"
+                  key: db_user
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: "compras-app-secret-{{ .Values.env }}"
+                  key: db_password
+            - name: POSTGRES_DB
+              valueFrom:
+                secretKeyRef:
+                  name: "compras-app-secret-{{ .Values.env }}"
+                  key: db_name
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+            - name: run
+              mountPath: /var/run/postgresql
+            - name: tmp
+              mountPath: /tmp
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "$(POSTGRES_USER)", "-d", "$(POSTGRES_DB)"]
+            initialDelaySeconds: 10
+            periodSeconds: 5
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: "{{ .Release.Name }}-postgresql-pvc"
+        - name: run
+          emptyDir: {}
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: "{{ .Release.Name }}-postgresql"
+  namespace: {{ .Values.namespace }}
+spec:
+  ports:
+    - port: 5432
+      targetPort: 5432
+  selector:
+    app: "{{ .Release.Name }}-postgresql"
+  type: ClusterIP
+{{- end }}

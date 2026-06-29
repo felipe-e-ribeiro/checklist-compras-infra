@@ -1,0 +1,81 @@
+namespace: comprasweb-prod
+env: prod
+
+# PostgreSQL — recomenda-se banco gerenciado em produção (RDS, Cloud SQL, etc.)
+# Defina enabled: false e passe as credenciais via --set abaixo
+postgresql:
+  enabled: true           # set false to use external managed DB
+  storage: 20Gi
+  storageClassName: nfs-comprasweb
+  accessMode: ReadWriteMany
+  auth:
+    username: compras
+    password: "CHANGE_IN_PROD"   # --set postgresql.auth.password=...
+    database: lista_compras
+
+redis:
+  enabled: true
+
+comprasweb:
+  replicaCount: 2
+  image:
+    repository: ghcr.io/felipe-e-ribeiro/checklist-compras
+    tag: "RELEASE_TAG"         # set via CI/CD: --set comprasweb.image.tag=v2.x.x
+    pullPolicy: Always
+  port: 3000
+  serviceName: comprasweb
+  webConcurrency: "4"           # adjust based on pod CPU limit
+
+  # ── SECRETS — never commit real values ────────────────────────────────
+  # Pass all secrets via --set flags or external secret management
+  jwtSecret: "CHANGE_IN_PROD"
+  googleClientId: "CHANGE_IN_PROD"
+  googleClientSecret: "CHANGE_IN_PROD"
+  googleCallbackUrl: "https://your-domain.com/auth/google/callback"
+  appUrl: "https://your-domain.com"
+  localAuthEnabled: "false"     # keep false in production
+  localAuthUser: "loadtest"
+  localAuthPassword: "CHANGE_IN_PROD"
+
+  resources:
+    requests:
+      cpu: "300m"
+      memory: "384Mi"
+    limits:
+      cpu: "1000m"
+      memory: "512Mi"
+
+hpa:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 8
+  targetCPUUtilizationPercentage: 60
+
+ingress:
+  enabled: true
+  ingressClassName: nginx
+  rewriteTarget: /
+  annotations:
+    nginx.org/websocket-services: "comprasweb"
+    nginx.org/proxy-read-timeout: "3600"
+    nginx.org/proxy-send-timeout: "3600"
+    nginx.org/redirect-to-https: "True"
+  # cert-manager: requires cert-manager installed in the cluster
+  # and a ClusterIssuer named as configured below
+  certManager:
+    enabled: true
+    clusterIssuer: "letsencrypt-prod"   # use letsencrypt-staging to test first
+    # issuer: ""                         # use this instead for namespace-scoped Issuer
+  hosts:
+    - host: "your-domain.com"
+      paths:
+        - path: /
+          pathType: Prefix
+          service: comprasweb
+          port: 3000
+  tls:
+    enabled: true
+    config:
+      - hosts:
+          - "your-domain.com"
+        secretName: comprasweb-tls    # cert-manager will create and manage this Secret

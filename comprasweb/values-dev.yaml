@@ -1,0 +1,42 @@
+namespace: "comprasweb-dev"
+env: "dev"
+redishost: ""
+
+comprasweb:
+  replicaCount: 1
+  image:
+    repository: ghcr.io/felipe-e-ribeiro/checklist-compras
+    tag: "latest"
+  port: 3000
+  serviceName: comprasweb-dev
+  dbaccess:
+    usernamedb: ""
+    passwordb: ""
+    hostaddrdb: ""
+    databasename: ""
+
+hpa:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 50
+
+ingress:
+  enabled: true
+  ingressClassName: "nginx"
+  rewriteTarget: /
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+  hosts:
+    - host: "compras-dev.felipeduribeiro.com.br"
+      paths:
+        - path: /
+          pathType: Prefix
+          service: comprasweb-dev
+          port: 3000
+  tls:
+    enabled: true
+    config:
+      - hosts:
+          - "compras-dev.felipeduribeiro.com.br"
+        secretName: comprasweb-dev-cert
