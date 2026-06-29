@@ -8,12 +8,6 @@ postgresql:
   storage: 50Gi           # OCI Block Volume minimum is 50Gi
   storageClassName: oci-bv
   accessMode: ReadWriteOnce
-  pv:
-    enabled: true
-    name: comprasweb-postgresql-pv
-    reclaimPolicy: Retain
-    fsType: ext4
-    volumeOCID: ""        # --set postgresql.pv.volumeOCID=ocid1.volume.oc1...
   auth:
     username: compras
     password: "CHANGE_IN_PROD"   # --set postgresql.auth.password=...

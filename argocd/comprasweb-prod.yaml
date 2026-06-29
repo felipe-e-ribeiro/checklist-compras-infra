@@ -1,0 +1,61 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: comprasweb-prod
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+
+  source:
+    repoURL: https://github.com/felipe-e-ribeiro/checklist-compras-infra.git
+    targetRevision: main
+    path: comprasweb
+    helm:
+      valueFiles:
+        - values-prod.yaml
+      # Segredos e valores sensíveis devem ser passados via ArgoCD Vault Plugin
+      # ou definidos no ArgoCD UI em Settings > Applications > Parameters.
+      # Nunca commitar valores reais abaixo.
+      parameters:
+        - name: comprasweb.jwtSecret
+          value: ""
+        - name: comprasweb.googleClientId
+          value: ""
+        - name: comprasweb.googleClientSecret
+          value: ""
+        - name: postgresql.auth.password
+          value: ""
+
+  destination:
+    # Para OKE registrado no ArgoCD, substitua pelo nome do cluster:
+    # server: https://<oke-api-endpoint>
+    server: https://kubernetes.default.svc
+    namespace: comprasweb-prod
+
+  syncPolicy:
+    automated:
+      prune: true       # remove recursos deletados do Git
+      selfHeal: true    # reverte mudanças manuais no cluster
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+    retry:
+      limit: 3
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 3m
+
+  ignoreDifferences:
+    # O lookup do PVC no template impede re-criação; ArgoCD vê diff no PVC
+    - group: ""
+      kind: PersistentVolumeClaim
+      jsonPointers:
+        - /spec/volumeName
+    # Secrets gerenciados externamente podem ter campos extras
+    - group: ""
+      kind: Secret
+      jsonPointers:
+        - /data

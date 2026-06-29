@@ -1,26 +1,5 @@
 {{- if .Values.postgresql.enabled }}
-{{- $pvName := .Values.postgresql.pv.name | default (printf "%s-postgresql-pv" .Release.Name) }}
 {{- $pvcName := printf "%s-postgresql-pvc" .Release.Name }}
-{{- if .Values.postgresql.pv.enabled }}
----
-apiVersion: v1
-kind: PersistentVolume
-metadata:
-  name: {{ $pvName }}
-  labels:
-    app: "{{ .Release.Name }}-postgresql"
-spec:
-  capacity:
-    storage: {{ .Values.postgresql.storage | default "50Gi" }}
-  accessModes:
-    - {{ .Values.postgresql.accessMode | default "ReadWriteOnce" }}
-  persistentVolumeReclaimPolicy: {{ .Values.postgresql.pv.reclaimPolicy | default "Retain" }}
-  storageClassName: {{ .Values.postgresql.storageClassName | default "oci-bv" }}
-  csi:
-    driver: blockvolume.csi.oraclecloud.com
-    volumeHandle: {{ .Values.postgresql.pv.volumeOCID }}
-    fsType: {{ .Values.postgresql.pv.fsType | default "ext4" }}
-{{- end }}
 {{- if not (lookup "v1" "PersistentVolumeClaim" .Values.namespace $pvcName) }}
 ---
 apiVersion: v1
@@ -33,9 +12,6 @@ spec:
     - {{ .Values.postgresql.accessMode | default "ReadWriteOnce" }}
   {{- if .Values.postgresql.storageClassName }}
   storageClassName: {{ .Values.postgresql.storageClassName }}
-  {{- end }}
-  {{- if .Values.postgresql.pv.enabled }}
-  volumeName: {{ $pvName }}
   {{- end }}
   resources:
     requests:
