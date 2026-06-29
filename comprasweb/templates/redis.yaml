@@ -28,7 +28,7 @@ spec:
       containers:
         - name: redis
           # redis:7-bookworm: multi-arch (linux/amd64 + linux/arm64), versão pinada
-          image: "redis:7-bookworm"
+          image: "docker.io/library/redis:7-bookworm"
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 6379
