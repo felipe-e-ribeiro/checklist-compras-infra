@@ -5,9 +5,15 @@ env: prod
 # Defina enabled: false e passe as credenciais via --set abaixo
 postgresql:
   enabled: true           # set false to use external managed DB
-  storage: 20Gi
-  storageClassName: nfs-comprasweb
-  accessMode: ReadWriteMany
+  storage: 50Gi           # OCI Block Volume minimum is 50Gi
+  storageClassName: oci-bv
+  accessMode: ReadWriteOnce
+  pv:
+    enabled: true
+    name: comprasweb-postgresql-pv
+    reclaimPolicy: Retain
+    fsType: ext4
+    volumeOCID: ""        # --set postgresql.pv.volumeOCID=ocid1.volume.oc1...
   auth:
     username: compras
     password: "CHANGE_IN_PROD"   # --set postgresql.auth.password=...
@@ -31,8 +37,8 @@ comprasweb:
   jwtSecret: "CHANGE_IN_PROD"
   googleClientId: "CHANGE_IN_PROD"
   googleClientSecret: "CHANGE_IN_PROD"
-  googleCallbackUrl: "https://your-domain.com/auth/google/callback"
-  appUrl: "https://your-domain.com"
+  googleCallbackUrl: "https://compras.felipeduribeiro.com.br/auth/google/callback"
+  appUrl: "https://compras.felipeduribeiro.com.br"
   localAuthEnabled: "false"     # keep false in production
   localAuthUser: "loadtest"
   localAuthPassword: "CHANGE_IN_PROD"
@@ -67,7 +73,7 @@ ingress:
     clusterIssuer: "letsencrypt-prod"   # use letsencrypt-staging to test first
     # issuer: ""                         # use this instead for namespace-scoped Issuer
   hosts:
-    - host: "your-domain.com"
+    - host: "compras.felipeduribeiro.com.br"
       paths:
         - path: /
           pathType: Prefix
@@ -77,5 +83,5 @@ ingress:
     enabled: true
     config:
       - hosts:
-          - "your-domain.com"
+          - "compras.felipeduribeiro.com.br"
         secretName: comprasweb-tls    # cert-manager will create and manage this Secret
