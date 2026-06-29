@@ -20,7 +20,7 @@ comprasweb:
   replicaCount: 2
   image:
     repository: ghcr.io/felipe-e-ribeiro/checklist-compras
-    tag: "RELEASE_TAG"         # set via CI/CD: --set comprasweb.image.tag=v2.x.x
+    tag: v4.0.1.3
     pullPolicy: Always
   port: 3000
   serviceName: comprasweb
