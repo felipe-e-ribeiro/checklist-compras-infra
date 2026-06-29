@@ -17,7 +17,7 @@ redis:
   enabled: true
 
 comprasweb:
-  replicaCount: 2
+  replicaCount: 1
   image:
     repository: ghcr.io/felipe-e-ribeiro/checklist-compras
     tag: v4.0.1.3
