@@ -55,7 +55,12 @@ platform-chart:
       - name: BCRYPT_ROUNDS
         value: "12"
     resources:
-      requests: {cpu: "300m", memory: "384Mi"}
+      # TEMPORÁRIO durante a validação: request baixo só pra caber ao lado
+      # do app antigo (comprasweb-prod) ainda rodando -- cluster de 2 nodes
+      # já apertado em CPU (ver PERSONAL-INFRA-CONTEXT.md). Ingress está
+      # desligado, sem tráfego real ainda. Volta pra 300m/1000m no cutover
+      # final, quando o app antigo for desligado (libera a CPU de volta).
+      requests: {cpu: "50m", memory: "384Mi"}
       limits: {cpu: "1000m", memory: "512Mi"}
     autoscaling:
       enabled: true
