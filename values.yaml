@@ -88,6 +88,11 @@ platform-chart:
   # banco gerenciado.
   postgres:
     enabled: true
+    image:
+      # bookworm (não o "16-alpine" default do chart) -- mesma tag que já
+      # rodava há 76 dias neste cluster antes da migração, pra não somar
+      # mais uma variável desconhecida durante o cutover.
+      tag: "16-bookworm"
     database: lista_compras
     username: compras
     urlScheme: postgresql
