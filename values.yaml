@@ -54,7 +54,15 @@ platform-chart:
       - name: BCRYPT_ROUNDS
         value: "12"
     resources:
-      requests: {cpu: "300m", memory: "384Mi"}
+      # 300m de request nunca coube de fato neste cluster: a carga base
+      # (ArgoCD, Grafana/Loki, ingress-nginx, cert-manager etc.) já deixa
+      # os 2 nodes em 90%+ de CPU alocada só com essa api rodando 1
+      # réplica -- todo rolling update (que precisa de +1 réplica
+      # temporária) trava em Pending/Insufficient cpu (confirmado no
+      # deploy da v4.0.1.4, 2026-09-13). 100m ainda garante espaço de
+      # sobra pro Node não sufocar, e o limit de 1000m continua livre
+      # pra picos reais de uso.
+      requests: {cpu: "100m", memory: "384Mi"}
       limits: {cpu: "1000m", memory: "512Mi"}
     autoscaling:
       enabled: true
