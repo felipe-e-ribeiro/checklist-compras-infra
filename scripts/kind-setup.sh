@@ -61,6 +61,11 @@ kubectl label namespace "$NAMESPACE" \
   --overwrite 2>/dev/null || true
 
 # ── 6. Helm ───────────────────────────────────────────────────────────
+# Desde 2026-09-13 este repo usa o platform-chart (não mais um chart
+# bespoke) -- ver values.yaml. Local/kind não tem ExternalSecret (não há
+# ClusterSecretStore fora do cluster real), então o secret é criado à
+# mão via --set-string, sobrescrevendo secrets.create/existingSecret só
+# nesta invocação (não commitar isso em values.yaml).
 echo "[6/7] Fazendo deploy com Helm..."
 echo ""
 echo "  ATENÇÃO: Preencha as credenciais abaixo."
@@ -71,18 +76,47 @@ GOOGLE_CLIENT_ID="${GOOGLE_CLIENT_ID:-YOUR_GOOGLE_CLIENT_ID}"
 read -rp "  GOOGLE_CLIENT_SECRET [YOUR_SECRET]: " GOOGLE_CLIENT_SECRET
 GOOGLE_CLIENT_SECRET="${GOOGLE_CLIENT_SECRET:-YOUR_SECRET}"
 
-helm upgrade --install comprasweb ./comprasweb \
-  -f comprasweb/values-kind.yaml \
+helm dependency build .
+
+LOCAL_VALUES="$(mktemp)"
+trap 'rm -f "$LOCAL_VALUES"' EXIT
+cat > "$LOCAL_VALUES" <<EOF
+platform-chart:
+  ingress:
+    enabled: false
+  postgres:
+    persistence:
+      storageClassName: standard
+  secrets:
+    create: true
+    existingSecret: ""
+    data:
+      POSTGRES_PASSWORD: devpassword
+      DB_PASSWORD: devpassword
+      JWT_SECRET: dev-jwt-secret-not-real
+      GOOGLE_CLIENT_ID: "${GOOGLE_CLIENT_ID}"
+      GOOGLE_CLIENT_SECRET: "${GOOGLE_CLIENT_SECRET}"
+EOF
+
+# extraEnv é uma lista -- Helm não faz merge de listas por -f, então os
+# 3 primeiros --set-string sobrescrevem por índice (índices vêm do
+# extraEnv base em values.yaml: 7=GOOGLE_CALLBACK_URL, 8=LOCAL_AUTH_ENABLED)
+# e os 2 últimos ADICIONAM entradas novas (índices 10/11, um a mais que o
+# tamanho atual da lista) só pra habilitar o login local de teste.
+helm upgrade --install comprasweb . \
+  -f "$LOCAL_VALUES" \
   -n "$NAMESPACE" \
   --timeout 8m \
-  --set "comprasweb.googleClientId=${GOOGLE_CLIENT_ID}" \
-  --set "comprasweb.googleClientSecret=${GOOGLE_CLIENT_SECRET}" \
-  --set "comprasweb.googleCallbackUrl=http://localhost:3000/auth/google/callback" \
-  --set "comprasweb.appUrl=http://localhost:3000"
+  --set-string "platform-chart.api.extraEnv[7].value=http://localhost:3000/auth/google/callback" \
+  --set-string "platform-chart.api.extraEnv[8].value=true" \
+  --set-string "platform-chart.api.extraEnv[10].name=LOCAL_AUTH_USER" \
+  --set-string "platform-chart.api.extraEnv[10].value=loadtest" \
+  --set-string "platform-chart.api.extraEnv[11].name=LOCAL_AUTH_PASSWORD" \
+  --set-string "platform-chart.api.extraEnv[11].value=loadtest123"
 
 # ── 7. Port-forward ───────────────────────────────────────────────────
 echo "[7/7] Iniciando port-forward em background..."
-kubectl port-forward -n "$NAMESPACE" svc/comprasweb 3000:3000 &
+kubectl port-forward -n "$NAMESPACE" svc/comprasweb-api 3000:80 &
 PF_PID=$!
 sleep 3
 
@@ -94,7 +128,7 @@ if curl -sf http://localhost:3000/healthz > /dev/null; then
   echo "  Login:    http://localhost:3000/login"
   echo "  Teste:    http://localhost:3000/access  (user: loadtest / senha: loadtest123)"
   echo ""
-  echo "  Monitorar logs:    kubectl logs -f -n $NAMESPACE -l app=comprasweb"
+  echo "  Monitorar logs:    kubectl logs -f -n $NAMESPACE -l app.kubernetes.io/component=api"
   echo "  Monitorar recursos: watch kubectl top pod -n $NAMESPACE"
   echo "  Port-forward PID:  $PF_PID"
 else

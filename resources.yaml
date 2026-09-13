@@ -1,0 +1,27 @@
+# Declarativo/documental por ora (não consumido automaticamente ainda --
+# ver "Próximos passos" na spec do personal-chard). Documenta os recursos
+# de nuvem que este app precisa, hoje só o secret do OCI Vault.
+#
+# O secret é criado/atualizado diretamente no Vault (não mais via
+# repository_dispatch/Terraform -- ver "Quarto pivot" no
+# PERSONAL-INFRA-CONTEXT.md):
+#
+#   oci vault secret create-base64 --profile DEV \
+#     --compartment-id <compartment_id> --vault-id <vault_id> --key-id <key_id> \
+#     --secret-name "comprasweb-app-secrets" \
+#     --secret-content-content "$(base64 -i secret.json)" \
+#     --secret-content-stage CURRENT --wait-for-state ACTIVE
+#
+# secret.json tem exatamente as chaves listadas abaixo. Só o que é
+# genuinamente sensível vai aqui -- host/porta/usuário/nome do banco e
+# outra config não secreta ficam em values.yaml (platform-chart.api.extraEnv).
+
+secrets:
+  - vaultSecretName: "comprasweb-app-secrets" # deve bater com values.yaml (externalSecret.vaultSecretName)
+    kubernetesSecretName: "comprasweb-secrets" # deve bater com values.yaml (externalSecret.kubernetesSecretName)
+    keys:
+      - POSTGRES_PASSWORD # lida pelo container do Postgres self-hosted (platform-chart)
+      - DB_PASSWORD        # mesmo valor de POSTGRES_PASSWORD -- lida pela api (knexfile.js)
+      - JWT_SECRET
+      - GOOGLE_CLIENT_ID
+      - GOOGLE_CLIENT_SECRET

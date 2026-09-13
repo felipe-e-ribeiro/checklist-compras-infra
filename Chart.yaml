@@ -1,0 +1,12 @@
+apiVersion: v2
+name: comprasweb
+description: >
+  Infra do app "compras" (checklist de compras compartilhado, código em
+  https://github.com/felipe-e-ribeiro/checklist-compras) via platform-chart.
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+dependencies:
+  - name: platform-chart
+    version: "0.2.1"
+    repository: "oci://ghcr.io/felipe-e-ribeiro/charts"

@@ -1,0 +1,117 @@
+# compras -- checklist de compras compartilhado (multi-tenant/workspace).
+# Ver https://github.com/felipe-e-ribeiro/checklist-compras pro código.
+#
+# Migrado do chart bespoke ("comprasweb/") pro platform-chart em
+# 2026-09-13 -- ver PERSONAL-INFRA-CONTEXT.md. Namespace passou de
+# "comprasweb-prod" pra "comprasweb" (sem sufixo -prod, mesmo padrão do
+# "pulse") porque a descoberta automática via apps-registry usa o nome do
+# app como namespace.
+
+platform-chart:
+  image:
+    registry: "" # deixe vazio -- api já usa repository completo (ghcr.io/...)
+
+  api:
+    enabled: true
+    image:
+      repository: ghcr.io/felipe-e-ribeiro/checklist-compras
+      tag: "v4.0.1.3"
+    port: 3000
+    probes:
+      path: /healthz
+      readiness: {initialDelaySeconds: 10, periodSeconds: 5}
+      liveness: {initialDelaySeconds: 15, periodSeconds: 20}
+    migration:
+      enabled: true
+      command: ["npm", "run", "migrate"]
+    # DB_PASSWORD/JWT_SECRET/GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET vêm do
+    # Secret existente (envFrom, ver secrets.existingSecret abaixo) -- só
+    # o que NÃO é sensível fica aqui: host/porta/usuário/nome do banco
+    # (derivam de postgres.* abaixo, mesmo release), URL do Redis
+    # self-hosted deste chart, e config não secreta da aplicação.
+    extraEnv:
+      - name: DB_CLIENT
+        value: "pg"
+      - name: DB_HOST
+        value: "comprasweb-postgres" # <fullname>-postgres (fullname = nome do release/Application)
+      - name: DB_PORT
+        value: "5432"
+      - name: DB_USER
+        value: "compras" # tem que bater com postgres.username abaixo
+      - name: DB_NAME
+        value: "lista_compras" # tem que bater com postgres.database abaixo
+      - name: REDIS_HOST
+        value: "redis://comprasweb-redis:6379" # <fullname>-redis
+      - name: WEB_CONCURRENCY
+        value: "4"
+      - name: GOOGLE_CALLBACK_URL
+        value: "https://compras.felipeduribeiro.com.br/auth/google/callback"
+      - name: LOCAL_AUTH_ENABLED
+        value: "false" # login local (loadtest) só em dev/kind -- nunca em prod
+      # BCRYPT_ROUNDS: achado durante a migração (2026-09-13) -- a
+      # produção rodava sem essa env var setada em lugar nenhum
+      # (Number(undefined) = NaN passado pro bcrypt). Setando aqui pela
+      # primeira vez -- ver PERSONAL-INFRA-CONTEXT.md.
+      - name: BCRYPT_ROUNDS
+        value: "12"
+    resources:
+      requests: {cpu: "300m", memory: "384Mi"}
+      limits: {cpu: "1000m", memory: "512Mi"}
+    autoscaling:
+      enabled: true
+      minReplicas: 1
+      maxReplicas: 8
+      targetCPUUtilizationPercentage: 60
+
+  ingress:
+    enabled: true
+    className: "nginx"
+    annotations:
+      cert-manager.io/cluster-issuer: letsencrypt-prod
+      nginx.org/websocket-services: "comprasweb-api" # <fullname>-api -- app usa socket.io
+      nginx.org/proxy-read-timeout: "3600"
+      nginx.org/proxy-send-timeout: "3600"
+      nginx.org/redirect-to-https: "True"
+    host: "compras.felipeduribeiro.com.br"
+    tls:
+      enabled: true
+      secretName: "comprasweb-tls" # cert-manager cria/gerencia, será reemitido (namespace novo)
+    publicUrlEnvName: APP_URL
+
+  # Postgres self-hosted -- mesma decisão consciente de antes (ver
+  # comprasweb/templates/postgresql.yaml original): stack simples, sem
+  # banco gerenciado.
+  postgres:
+    enabled: true
+    database: lista_compras
+    username: compras
+    urlScheme: postgresql
+    persistence:
+      storageClassName: "oci-bv"
+      size: 50Gi # OCI Block Volume mínimo
+    resources:
+      requests: {cpu: "50m", memory: "128Mi"}
+      limits: {cpu: "250m", memory: "512Mi"}
+
+  redis:
+    enabled: true
+
+  # Isola Postgres/Redis -- só a api (e a migration, que roda como
+  # initContainer dela) conseguem conectar.
+  networkPolicy:
+    enabled: true
+
+  # Produção via ArgoCD/ExternalSecret -- não preencha secrets.data aqui.
+  # O Secret "comprasweb-secrets" é criado pelo ExternalSecret (ver
+  # templates/external-secret.yaml), a partir do OCI Vault -- ver
+  # resources.yaml pras chaves esperadas.
+  secrets:
+    create: false
+    existingSecret: "comprasweb-secrets"
+
+# Usado só pelo template local templates/external-secret.yaml deste chart
+# (não é repassado pro platform-chart) -- nomes do secret no Vault e no
+# Kubernetes.
+externalSecret:
+  vaultSecretName: "comprasweb-app-secrets"
+  kubernetesSecretName: "comprasweb-secrets"

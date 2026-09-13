@@ -1,0 +1,2 @@
+# Dumps de backup do PostgreSQL — contêm dados reais de usuários, nunca commitar.
+backups/
