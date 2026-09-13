@@ -64,7 +64,12 @@ platform-chart:
       targetCPUUtilizationPercentage: 60
 
   ingress:
-    enabled: true
+    # Desligado até o cutover real: o Ingress antigo (namespace
+    # comprasweb-prod) reivindica o mesmo host, e dois Ingress pro mesmo
+    # host dão conflito não-determinístico no nginx-ingress. Ligar só
+    # depois de validar Postgres/Redis/api isolados e restaurar o backup
+    # -- ver PERSONAL-INFRA-CONTEXT.md.
+    enabled: false
     className: "nginx"
     annotations:
       cert-manager.io/cluster-issuer: letsencrypt-prod
