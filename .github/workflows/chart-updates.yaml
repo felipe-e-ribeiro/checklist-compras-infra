@@ -13,6 +13,9 @@ on:
 
 jobs:
   chart-updates:
+    permissions:
+      contents: write
+      pull-requests: write
     uses: felipe-e-ribeiro/personal-charts/.github/workflows/chart-update-check.yaml@main
     with:
       manager: 'helmv3'
