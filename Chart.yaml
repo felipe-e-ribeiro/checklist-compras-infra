@@ -8,5 +8,5 @@ version: 0.1.0
 appVersion: "0.1.0"
 dependencies:
   - name: platform-chart
-    version: "0.2.2"
+    version: "0.2.3"
     repository: "oci://ghcr.io/felipe-e-ribeiro/charts"
