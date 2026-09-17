@@ -1,0 +1,22 @@
+name: 'Chart Updates'
+
+on:
+  schedule:
+    - cron: '0 9 * * 1'   # toda segunda-feira, 09:00 UTC
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Rodar em modo dry-run (não abre PR, só loga o que faria)'
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  chart-updates:
+    uses: felipe-e-ribeiro/personal-charts/.github/workflows/chart-update-check.yaml@main
+    with:
+      manager: 'helmv3'
+      path_charts: |
+        Chart.yaml
+      group_updates: true
+      dry_run: ${{ inputs.dry_run == true }}
