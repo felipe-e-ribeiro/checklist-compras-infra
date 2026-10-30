@@ -1,0 +1,19 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: checklist-compras-infra
+  description: Infra do compras (checklist de compras compartilhado)
+  annotations:
+    github.com/project-slug: felipe-e-ribeiro/checklist-compras-infra
+    argocd/app-name: comprasweb
+  links:
+    - url: https://compras.felipeduribeiro.com.br
+      title: compras.felipeduribeiro.com.br
+    - url: https://github.com/felipe-e-ribeiro/checklist-compras
+      title: Código (checklist-compras)
+  tags: [helm, platform-chart]
+spec:
+  type: infra
+  lifecycle: production
+  owner: group:platform
+  system: oks-personal
